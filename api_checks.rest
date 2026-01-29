@@ -1,0 +1,21 @@
+### Health check
+GET http://127.0.0.1:5000/api/health
+
+### List loaded models
+GET http://127.0.0.1:5000/api/models
+
+### Predict (article)
+POST http://127.0.0.1:5000/api/predict/article
+Content-Type: application/json
+
+{
+  "article": "The quick brown fox jumps over the lazy dog."
+}
+
+### Predict (claim)
+POST http://127.0.0.1:5000/api/predict/claim
+Content-Type: application/json
+
+{
+  "statement": "The quick brown fox jumps over the lazy dog."
+}

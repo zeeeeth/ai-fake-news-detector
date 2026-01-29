@@ -1,0 +1,10 @@
+.venv
+README.md
+package-lock.json
+requirements.txt
+src/__pycache__/
+models
+data
+frontend/
+!frontend/src/
+!frontend/src/**

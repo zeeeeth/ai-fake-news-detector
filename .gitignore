@@ -1,0 +1,12 @@
+models/**/_runs/
+models/**/checkpoint-*/
+models/**/training_args.bin
+data/raw/ISOT/*
+data/raw/LIAR/*
+frontend/node_modules/*
+frontend/package-lock.json
+.env
+**/__pycache__/
+__pycache__/
+
+.venv
