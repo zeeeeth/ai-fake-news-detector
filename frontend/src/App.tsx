@@ -116,6 +116,23 @@ function asTrueFalseProbs(prediction: Prediction | null) {
   return { trueProb: 0.5, falseProb: 0.5 }
 }
 
+function Dot({ color }: { color: string }) {
+  return (
+    <Box
+      component="span"
+      sx={{
+        width: 10,
+        height: 10,
+        borderRadius: '50%',
+        bgcolor: color,
+        display: 'inline-block',
+        flex: '0 0 auto',
+      }}
+    />
+  )
+}
+
+
 function PredictionPanel({
   prediction,
   mode,
@@ -137,23 +154,43 @@ function PredictionPanel({
 
   const clamp01Local = (x: number) => Math.max(0, Math.min(1, x))
 
-  const Dot = ({ color }: { color: string }) => (
-    <Box
-      component="span"
-      sx={{
-        width: 10,
-        height: 10,
-        borderRadius: '50%',
-        bgcolor: color,
-        display: 'inline-block',
-        flex: '0 0 auto',
-      }}
-    />
-  )
+  const tf = useMemo(() => {
+    if (mode !== 'article') return null
+    return asTrueFalseProbs(prediction)
+  }, [mode, prediction])
+
+  const top = useMemo(() => {
+    if (mode !== 'claim') return null
+    if (!prediction) return null
+
+    const probsObj = prediction.probabilities || {}
+    const entries = Object.entries(probsObj)
+      .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+      .map(([k, v]) => ({ label: String(k), prob: Math.max(0, Number(v)) }))
+      .filter((x) => x.prob > 0)
+
+    if (entries.length === 0 && typeof prediction.label === 'string' && typeof prediction.confidence === 'number') {
+      const conf = clamp01(prediction.confidence)
+      return {
+        items: [{ label: prediction.label, prob: conf }],
+        otherProb: clamp01(1 - conf),
+      }
+    }
+
+    const sum = entries.reduce((a, b) => a + b.prob, 0)
+    const norm = sum > 0 ? entries.map((e) => ({ ...e, prob: e.prob / sum })) : []
+
+    norm.sort((a, b) => b.prob - a.prob)
+    const items = norm.slice(0, 3)
+    const topSum = items.reduce((a, b) => a + b.prob, 0)
+    const otherProb = clamp01(1 - topSum)
+
+    return { items, otherProb }
+  }, [mode, prediction])
+
 
   // ---------- ARTICLE MODE (binary) ----------
   if (mode === 'article') {
-    const tf = useMemo(() => asTrueFalseProbs(prediction), [prediction])
     const hasPrediction = !!prediction && !!tf
 
     const predictedIsTrue = hasPrediction ? tf!.trueProb >= 0.5 : true
@@ -163,7 +200,6 @@ function PredictionPanel({
     const otherProb = !hasPrediction ? 0 : predictedIsTrue ? tf!.falseProb : tf!.trueProb
 
     const predictedPct = Math.round(predictedProb * 1000) / 10
-    const otherPct = Math.round(otherProb * 1000) / 10
 
     const truePct = hasPrediction ? Math.round(tf!.trueProb * 1000) / 10 : 0
     const falsePct = hasPrediction ? Math.round(tf!.falseProb * 1000) / 10 : 0
@@ -171,7 +207,6 @@ function PredictionPanel({
     // Ring colours (still “predicted first, other fills rest”)
     const primaryColor = predictedIsTrue ? '#2e7d32' : '#c62828'
     const secondaryColor = predictedIsTrue ? '#c62828' : '#2e7d32'
-    const otherLabel = predictedIsTrue ? 'False' : 'True'
 
     const size = 240
     const stroke = 18
@@ -208,7 +243,7 @@ function PredictionPanel({
         </Typography>
 
         <Typography variant="body2" sx={{ mt: 0.5, color: 'rgba(0,0,0,0.65)' }}>
-          {!hasPrediction ? 'Submit an article…' : 'Your results:'}
+          {!hasPrediction ? 'Submit an article…' : ''}
         </Typography>
 
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 2 }}>
@@ -344,34 +379,6 @@ function PredictionPanel({
   }
 
   // ---------- CLAIM MODE (top 3 + Other) ----------
-  const top = useMemo(() => {
-    if (!prediction) return null
-
-    const probsObj = prediction.probabilities || {}
-    const entries = Object.entries(probsObj)
-      .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
-      .map(([k, v]) => ({ label: String(k), prob: Math.max(0, Number(v)) }))
-      .filter((x) => x.prob > 0)
-
-    if (entries.length === 0 && typeof prediction.label === 'string' && typeof prediction.confidence === 'number') {
-      const conf = clamp01Local(prediction.confidence)
-      return {
-        items: [{ label: prediction.label, prob: conf }],
-        otherProb: clamp01Local(1 - conf),
-      }
-    }
-
-    const sum = entries.reduce((a, b) => a + b.prob, 0)
-    const norm = sum > 0 ? entries.map((e) => ({ ...e, prob: e.prob / sum })) : []
-
-    norm.sort((a, b) => b.prob - a.prob)
-    const items = norm.slice(0, 3)
-    const topSum = items.reduce((a, b) => a + b.prob, 0)
-    const otherProb = clamp01Local(1 - topSum)
-
-    return { items, otherProb }
-  }, [prediction])
-
   const hasPrediction = !!prediction && !!top
 
   const size = 240
@@ -480,7 +487,6 @@ function PredictionPanel({
                     <circle r={r} cx={0} cy={0} fill="none" stroke="#bdbdbd" strokeWidth={stroke} />
 
                     {segs.map((s, i) => {
-                      const len = segLens[i]
                       const offset = -cumLens[i]
                       const anim = `dashClaim_${ringKey}_${i}`
 
